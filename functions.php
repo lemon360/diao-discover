@@ -1,8 +1,8 @@
 <?php
 /** 屌软件 Discover theme. */
 if (!defined('ABSPATH')) { exit; }
-define('DH_VERSION', '1.4.1');
-foreach (['settings', 'colors', 'software', 'seo', 'community', 'template', 'content-ads', 'widgets', 'tools', 'newsletter', 'insights', 'html-minify'] as $module) {
+define('DH_VERSION', '1.4.2');
+foreach (['settings', 'colors', 'software', 'seo', 'community', 'template', 'content-ads', 'widgets', 'tools', 'comment-guard', 'newsletter', 'insights', 'html-minify'] as $module) {
     require_once get_template_directory() . '/inc/' . $module . '.php';
 }
 add_action('after_setup_theme', function () {

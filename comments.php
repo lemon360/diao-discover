@@ -1,4 +1,4 @@
-<?php if (!defined('ABSPATH') || post_password_required()) { return; } ?>
+<?php if (!defined('ABSPATH') || post_password_required() || dh_comments_hidden()) { return; } ?>
 <section id="comments" class="comments-section"><h2>一起聊聊 <span><?php echo esc_html(get_comments_number()); ?></span></h2><p class="section-caption">分享使用体验，让下一个发现更有价值。</p>
 <?php if (have_comments()): ?><ol class="comment-list"><?php wp_list_comments(['style' => 'ol', 'short_ping' => true, 'avatar_size' => 40, 'max_depth' => 4]); ?></ol><nav class="pagination"><?php paginate_comments_links(); ?></nav><?php endif; ?>
 <?php if (!comments_open()): ?><p class="cache-note">这篇文章已关闭评论。</p><?php else: comment_form(['title_reply' => '留下你的想法', 'label_submit' => '发布评论', 'comment_notes_before' => '<p class="section-caption">邮箱不会公开显示。评论可能需要审核。</p>', 'class_submit' => 'button', 'comment_field' => '<p class="comment-form-comment"><label for="comment">评论</label><textarea id="comment" name="comment" rows="4" required placeholder="它解决了你的什么问题？"></textarea></p>']); endif; ?></section>
