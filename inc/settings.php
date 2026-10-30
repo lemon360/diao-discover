@@ -7,7 +7,7 @@ function dh_defaults() {
         'announcement' => '保持好奇，探索开源的无限可能', 'per_page' => 12, 'excluded_categories' => '',
         'featured_ids' => '', 'editorial_categories' => '', 'editorial_widget_default' => 1, 'github_sync' => 1, 'votes' => 1, 'bookmarks' => 1, 'share' => 1,
         'seo' => 1, 'seo_title' => '', 'seo_description' => '屌软件：发现值得使用的免费软件、GitHub 开源项目、实用工具与软件教程。',
-        'social_image' => '', 'ad_enabled' => 0, 'ad_interval' => 4,
+        'social_image' => '', 'ad_enabled' => 0, 'ad_interval' => 4, 'ad_content_enabled' => 1, 'ad_content_after' => 3,
         'footer_text' => '发现、分享，让好软件被更多人看见。', 'icp' => '', 'icp_url' => 'https://beian.miit.gov.cn/',
         'toolbox_url' => 'https://tool.nihendiao.com/', 'contact_url' => '',
         'sidebar_manifesto' => 1, 'sidebar_community' => 1, 'share_caption' => '好软件，值得分享。',
@@ -71,14 +71,14 @@ function dh_setting_groups() {
             'seo_title' => ['首页 SEO 标题（留空使用站点标题）', 'text'], 'seo_description' => ['首页描述', 'textarea'],
             'social_image' => ['默认社交分享图 URL', 'url'],
         ]],
-        'ads' => ['广告管理', ['ad_enabled' => ['启用所有已配置广告', 'checkbox'], 'ad_interval' => ['列表广告插入位置（第几条之后）', 'number']]],
+        'ads' => ['广告管理', ['ad_enabled' => ['启用所有已配置广告', 'checkbox'], 'ad_interval' => ['列表广告插入位置（第几条之后）', 'number'], 'ad_content_enabled' => ['启用文章正文中广告', 'checkbox'], 'ad_content_after' => ['正文中广告位置（第几个完整段落之后，1–36）', 'number']]],
         'footer' => ['页脚与联系', [
             'footer_text' => ['页脚文字', 'textarea'], 'icp' => ['ICP备案号（留空隐藏）', 'text'],
             'icp_url' => ['备案查询地址', 'url'], 'contact_url' => ['自定义投稿页面 URL（留空使用内置审核投稿）', 'url'],
         ]],
     ];
 }
-function dh_ad_slots() { return ['top' => '首页顶部', 'feed' => '发现列表中', 'sidebar' => '右侧栏', 'article' => '文章正文后', 'footer' => '全站页脚']; }
+function dh_ad_slots() { return ['top' => '首页顶部', 'feed' => '发现列表中', 'sidebar' => '右侧栏', 'content' => '文章正文中', 'article' => '文章正文后', 'footer' => '全站页脚']; }
 function dh_sanitize_options($input) {
     $input = is_array($input) ? $input : [];
     $clean = [];
@@ -140,7 +140,7 @@ function dh_settings_page() {
     <?php if ($id === 'newsletter'): ?><p>双重确认：先发确认邮件，点击邮件链接并确认后才会接收新文章通知；每封通知带退订入口。使用 WordPress 发信服务，可在 wp-config.php 配置 DH_SMTP_* 常量接入 SMTP。<a href="<?php echo esc_url(admin_url('themes.php?page=dh-newsletter')); ?>">管理订阅者与查看队列</a>。新通知通过 WP-Cron 分批发送。</p><?php endif; ?>
     <?php if ($id === 'analytics'): ?><p>可粘贴百度、Google Analytics、Umami 等完整代码；仅具备 unfiltered_html 权限的管理员可保存脚本。关闭开关保留代码。浏览量独立统计，不依赖第三方服务。</p><?php endif; ?>
     <?php if ($id === 'seo'): ?><p class="description">包含 canonical、描述、Open Graph、Twitter Card、结构化数据；沿用 WordPress 核心 sitemap。搜索、收藏与筛选页不参与索引。Yoast、Rank Math、AIOSEO、SEOPress 存在时自动让位。</p><?php endif; ?>
-    <?php if ($id === 'ads'): ?><p>可填图片广告或 HTML 代码；HTML 优先。仅有 unfiltered_html 权限的管理员可保存执行脚本，代码由你信任的广告服务提供。未配置广告不占空间。</p>
+    <?php if ($id === 'ads'): ?><p>可填图片广告或 HTML 代码；HTML 优先。仅有 unfiltered_html 权限的管理员可保存执行脚本，代码由你信任的广告服务提供。未配置广告不占空间。正文中广告默认显示在第 3 个完整独立段落后；段落不足时放在最后一个独立段落后。列表、引用、代码块等嵌套内容不计入，正文没有适合的段落时不插入。正文后的原有广告位独立保留。</p>
     <?php foreach (dh_ad_slots() as $slot => $label): ?><h3><?php echo esc_html($label); ?></h3><table class="form-table" role="presentation"><?php foreach (['title' => '广告文案 / 图片替代文字', 'image' => '广告图片 URL', 'url' => '广告目标链接', 'html' => '广告 HTML / 脚本'] as $type => $name): $key = 'ad_' . $slot . '_' . $type; ?><tr><th><label for="dh-<?php echo esc_attr($key); ?>"><?php echo esc_html($name); ?></label></th><td><?php if ($type === 'html'): ?><textarea id="dh-<?php echo esc_attr($key); ?>" name="dh_options[<?php echo esc_attr($key); ?>]" <?php disabled(!current_user_can('unfiltered_html')); ?>><?php echo esc_textarea(dh_opt($key)); ?></textarea><?php else: ?><input id="dh-<?php echo esc_attr($key); ?>" type="<?php echo in_array($type, ['image', 'url'], true) ? 'url' : 'text'; ?>" name="dh_options[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr(dh_opt($key)); ?>"><?php endif; ?></td></tr><?php endforeach; ?></table><?php endforeach; ?>
     <?php endif; ?></fieldset><?php endforeach; ?>
     <?php submit_button('保存主题设置'); ?></form></div>

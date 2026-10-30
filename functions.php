@@ -1,8 +1,8 @@
 <?php
 /** 屌软件 Discover theme. */
 if (!defined('ABSPATH')) { exit; }
-define('DH_VERSION', '1.4.0');
-foreach (['settings', 'software', 'seo', 'community', 'template', 'widgets', 'tools', 'newsletter', 'insights', 'html-minify'] as $module) {
+define('DH_VERSION', '1.4.1');
+foreach (['settings', 'colors', 'software', 'seo', 'community', 'template', 'content-ads', 'widgets', 'tools', 'newsletter', 'insights', 'html-minify'] as $module) {
     require_once get_template_directory() . '/inc/' . $module . '.php';
 }
 add_action('after_setup_theme', function () {
@@ -28,9 +28,8 @@ add_action('wp_enqueue_scripts', function () {
         'home' => home_url('/'), 'theme' => dh_opt('color_mode'),
         'viewPost' => dh_opt('views_enabled') && is_single() && !is_preview() && !post_password_required() && !current_user_can('edit_post', get_queried_object_id()) ? get_queried_object_id() : 0,
     ]);
-    $accent = sanitize_hex_color(dh_opt('accent')) ?: '#b4553d';
-    if ($accent === '#ef603d') { $accent = '#b4553d'; }
-    wp_add_inline_style('dh-style', ':root{--brand-accent:' . $accent . '}');
+    $palette = dh_color_palette(dh_opt('accent'));
+    wp_add_inline_style('dh-style', ':root{--brand-accent:' . $palette['brand'] . ';--accent:' . $palette['light'] . ';--on-accent:#fffaf5}[data-theme=dark]{--accent:' . $palette['dark'] . ';--on-accent:#202820}');
     if (is_singular() && comments_open() && get_option('thread_comments')) { wp_enqueue_script('comment-reply'); }
 });
 add_filter('excerpt_length', function () { return 40; });
