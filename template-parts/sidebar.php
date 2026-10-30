@@ -1,0 +1,12 @@
+<?php if (!defined('ABSPATH')) { exit; } ?>
+<aside class="right-sidebar" aria-label="精选与分类">
+<?php if (dh_opt('sidebar_manifesto')): ?>
+<section class="sidebar-card manifesto"><?php if (dh_opt('manifesto_kicker')): ?><span class="eyebrow"><?php echo esc_html(dh_opt('manifesto_kicker')); ?></span><?php endif; ?><h2><?php echo nl2br(esc_html(dh_opt('manifesto_title'))); ?></h2><p><?php echo nl2br(esc_html(dh_opt('manifesto_text'))); ?></p><?php if (dh_manifesto_url() && dh_opt('manifesto_button')): ?><a href="<?php echo esc_url(dh_manifesto_url()); ?>"><?php echo esc_html(dh_opt('manifesto_button')); ?> <?php echo dh_icon('arrow'); ?></a><?php endif; ?><div class="manifesto-art" aria-hidden="true"><span>&lt;/&gt;</span><i>✦</i><b>+</b></div></section>
+<?php endif; dh_ad('sidebar'); ?>
+<?php dh_sidebar_widgets(); ?>
+<section class="sidebar-section"><div class="section-heading"><h2>值得再看一眼</h2><?php echo dh_icon('spark'); ?></div><p class="section-caption">从最近的分享中，发现更多可能</p>
+<?php $related = new WP_Query(['posts_per_page' => 4, 'post_status' => 'publish', 'post_type' => 'post', 'ignore_sticky_posts' => true, 'no_found_rows' => true, 'category__not_in' => dh_app_excluded_categories(), 'post__not_in' => is_single() ? [get_queried_object_id()] : [], 'orderby' => 'comment_count']); ?>
+<div class="mini-list"><?php while ($related->have_posts()): $related->the_post(); ?><a href="<?php the_permalink(); ?>"><?php dh_product_icon(); ?><span><strong><?php echo esc_html(dh_title()); ?></strong><small><?php echo esc_html(wp_html_excerpt(dh_summary(), 27, '…')); ?></small></span><?php echo dh_icon('external'); ?></a><?php endwhile; wp_reset_postdata(); ?></div></section>
+<section class="sidebar-section"><div class="section-heading"><h2>灵感，从这里开始</h2></div><div class="topic-cloud"><?php foreach (array_slice(dh_categories(), 0, 8) as $term): ?><a href="<?php echo esc_url(get_category_link($term)); ?>"># <?php echo esc_html($term->name); ?><span><?php echo esc_html($term->count); ?></span></a><?php endforeach; ?></div></section>
+<?php if (dh_opt('sidebar_community')): ?><section class="community-card"><?php echo dh_icon('github'); ?><h3><?php echo esc_html(dh_opt('community_title')); ?></h3><p><?php echo nl2br(esc_html(dh_opt('community_text'))); ?></p><?php if (dh_opt('community_url') && dh_opt('community_button')): ?><a href="<?php echo esc_url(dh_opt('community_url')); ?>" target="_blank" rel="noopener"><?php echo esc_html(dh_opt('community_button')); ?> <?php echo dh_icon('external'); ?></a><?php endif; ?></section><?php endif; ?>
+</aside>

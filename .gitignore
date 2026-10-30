@@ -1,0 +1,19 @@
+# Local WordPress and secrets
+wp-config*.php
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.log
+*.csv
+mail-capture*
+node_modules/
+vendor/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.zip
