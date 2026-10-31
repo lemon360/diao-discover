@@ -87,10 +87,10 @@ function dh_ad($slot) {
     if (!dh_opt('ad_enabled')) { return; }
     $html = dh_opt('ad_' . $slot . '_html'); $image = dh_opt('ad_' . $slot . '_image'); $url = dh_opt('ad_' . $slot . '_url'); $title = dh_opt('ad_' . $slot . '_title');
     if (!$html && (!$image || !$url)) { return; }
-    echo '<aside class="ad-slot ad-' . esc_attr($slot) . '" aria-label="广告"><span class="ad-label">赞助推广</span>';
+    echo '<aside class="ad-slot ad-' . esc_attr($slot) . '" aria-label="广告">';
     // Trusted executable markup can only be saved by administrators with unfiltered_html.
     if ($html) { echo $html; } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-    else { echo '<a href="' . esc_url($url) . '" target="_blank" rel="sponsored noopener nofollow"><img loading="lazy" src="' . esc_url($image) . '" alt="' . esc_attr($title ?: '赞助推广') . '"></a>'; }
+    else { echo '<a href="' . esc_url($url) . '" target="_blank" rel="sponsored noopener nofollow"><img loading="lazy" src="' . esc_url($image) . '" alt="' . esc_attr($title ?: '广告图片') . '"></a>'; }
     echo '</aside>';
 }
 function dh_primary_fallback() {
