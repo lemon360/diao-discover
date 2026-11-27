@@ -33,22 +33,43 @@
     if (currentUrl.searchParams.has('saved') && removing) location.assign(savedUrl());
   }));
   window.addEventListener('storage', event => { if (event.key === 'dh-saved') { try { const value=JSON.parse(event.newValue || '[]'); saved=Array.isArray(value)?value.filter(Number.isInteger).slice(0,100):[];renderBookmarks(); } catch (_) {} } });
-  $$('[data-theme-toggle]').forEach(button => button.addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem('dh-theme', next); } catch (_) {}
-    button.setAttribute('aria-label', next === 'dark' ? '切换浅色模式' : '切换深色模式');
-  }));
-  const panel = $('#mobile-panel'), toggle = $('.mobile-toggle');
-  function closeMenu() { if (!panel || !toggle) return; panel.hidden = true; toggle.setAttribute('aria-expanded', 'false'); }
-  toggle?.addEventListener('click', () => { const open=panel.hidden;panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open)); if(open) $('a',panel)?.focus(); });
+  const root = document.documentElement;
+  const colorScheme = $('meta[name="color-scheme"]');
+  const themeToggle = $('[data-theme-toggle]');
+  const modes = ['system', 'light', 'dark'];
+  const modeLabels = { system: '跟随系统', light: '浅色', dark: '深色' };
+  function nextTheme() {
+    return modes[(modes.indexOf(root.dataset.theme) + 1) % modes.length];
+  }
+  function labelTheme() {
+    if (!themeToggle) return;
+    const label = '外观：' + modeLabels[root.dataset.theme] + '，切换为' + modeLabels[nextTheme()];
+    themeToggle.setAttribute('aria-label', label);
+    themeToggle.title = label;
+  }
+  labelTheme();
+  themeToggle?.addEventListener('click', () => {
+    const mode = nextTheme();
+    root.dataset.theme = mode;
+    if (colorScheme) colorScheme.content = mode === 'system' ? 'light dark' : mode;
+    try { localStorage.setItem('dh-theme', mode); } catch (_) {}
+    labelTheme();
+  });
+
+  const mobileNav = $('.mobile-nav');
+  const mobileToggle = $('.mobile-toggle');
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && panel && !panel.hidden) {closeMenu();toggle.focus();}
+    if (event.key === 'Escape' && mobileNav?.open && mobileNav.getClientRects().length) {
+      mobileNav.open = false;
+      mobileToggle.focus();
+    }
     if (event.key === '/' && !event.ctrlKey && !event.metaKey && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !document.activeElement.isContentEditable) {
       const search = $('#header-s'); if (search && search.getClientRects().length) {event.preventDefault();search.focus();}
     }
   });
-  document.addEventListener('click', event => { if (panel && !panel.hidden && !panel.contains(event.target) && !toggle.contains(event.target)) closeMenu(); });
+  document.addEventListener('click', event => {
+    if (mobileNav?.open && !mobileNav.contains(event.target)) mobileNav.open = false;
+  });
   async function copy(text) {
     try { await navigator.clipboard.writeText(text); toast('链接已复制，可以粘贴到微信或其他应用。'); }
     catch (_) { window.prompt('复制以下内容：', text); }
@@ -56,9 +77,11 @@
   $$('[data-copy]').forEach(button => button.addEventListener('click', () => copy(button.dataset.copy)));
   const shareDialog = $('#dh-share-dialog');
   let shareTrigger;
-  function closeShare() { if(!shareDialog)return;shareDialog.close();document.body.classList.remove('has-share-dialog');shareTrigger?.focus(); }
-  $$('[data-share]').forEach(button => button.addEventListener('click', () => {
-    if(!shareDialog)return;
+  $$('[data-share]').forEach(button => button.addEventListener('click', event => {
+    if (!shareDialog || typeof shareDialog.showModal !== 'function' ||
+        event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    event.preventDefault();
+    if (shareDialog.open) return;
     shareTrigger=button;
     const url=encodeURIComponent(button.dataset.url),title=encodeURIComponent(button.dataset.title);
     const links={weibo:`https://service.weibo.com/share/share.php?url=${url}&title=${title}`,qq:`https://connect.qq.com/widget/shareqq/index.html?url=${url}&title=${title}`,qzone:`https://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url=${url}&title=${title}`,x:`https://twitter.com/intent/tweet?url=${url}&text=${title}`,telegram:`https://t.me/share/url?url=${url}&text=${title}`};
@@ -68,15 +91,41 @@
     $('[data-share-wechat]',shareDialog).onclick=()=>copy(button.dataset.url);
     shareDialog.showModal();document.body.classList.add('has-share-dialog');
   }));
-  $('[data-share-close]')?.addEventListener('click',closeShare);
-  shareDialog?.addEventListener('cancel',event=>{event.preventDefault();closeShare();});
-  shareDialog?.addEventListener('click',event=>{const r=shareDialog.getBoundingClientRect();if(event.target===shareDialog&&(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom))closeShare();});
+  shareDialog?.addEventListener('close', () => {
+    document.body.classList.remove('has-share-dialog');
+    shareTrigger?.focus();
+  });
+  if (shareDialog && typeof shareDialog.showModal === 'function' && !('closedBy' in shareDialog)) {
+    shareDialog.addEventListener('click', event => {
+      if (event.target !== shareDialog) return;
+      const bounds = shareDialog.getBoundingClientRect();
+      if (event.clientX < bounds.left || event.clientX > bounds.right ||
+          event.clientY < bounds.top || event.clientY > bounds.bottom) shareDialog.close();
+    });
+  }
   function renderVote(id,data){$$(`[data-vote="${id}"]`).forEach(b=>{b.classList.toggle('is-active',data.active);b.setAttribute('aria-pressed',String(data.active));$('span',b).textContent=data.count>=1000?`${(data.count/1000).toFixed(1)}k`:String(data.count);});}
   let guestVoteToken='';
-  async function voteFetch(path,options={}){
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
-    try{const headers={'Content-Type':'application/json',...(DH.loggedIn?{'X-WP-Nonce':DH.nonce}:{}),...(options.headers||{})};const response=await fetch(`${DH.rest}${path}`,{...options,headers,credentials:'same-origin',cache:'no-store',signal:controller.signal});const data=await response.json();if(!response.ok)throw new Error(data.message||'推荐失败，请刷新后重试。');return data;}
-    finally{clearTimeout(timer);}
+  async function voteFetch(path, options = {}) {
+    let signal, timer;
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      signal = AbortSignal.timeout(10000);
+    } else if (typeof AbortController !== 'undefined') {
+      const controller = new AbortController();
+      signal = controller.signal;
+      timer = setTimeout(() => controller.abort(), 10000);
+    }
+    try {
+      const headers = {'Content-Type':'application/json', ...(DH.loggedIn ? {'X-WP-Nonce':DH.nonce} : {}), ...options.headers};
+      const response = await fetch(DH.rest + path, {...options, headers, credentials:'same-origin', cache:'no-store', signal});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || '推荐失败，请刷新后重试。');
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError' || error.name === 'TimeoutError') throw new Error('请求超时，请重试。');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
   const viewIds=[...new Set($$('[data-view-count]').map(el=>el.dataset.viewCount))].slice(0,100);
   function renderViews(id,count){$$(`[data-view-count="${id}"]`).forEach(el=>{el.textContent=count>=1000?`${(count/1000).toFixed(1)}k`:String(count);});}

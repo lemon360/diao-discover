@@ -7,7 +7,7 @@ function dh_defaults() {
         'announcement' => '保持好奇，探索开源的无限可能', 'per_page' => 12, 'excluded_categories' => '',
         'featured_ids' => '', 'editorial_categories' => '', 'editorial_widget_default' => 1, 'github_sync' => 1, 'votes' => 1, 'bookmarks' => 1, 'share' => 1,
         'seo' => 1, 'seo_title' => '', 'seo_description' => '屌软件：发现值得使用的免费软件、GitHub 开源项目、实用工具与软件教程。',
-        'social_image' => '', 'ad_enabled' => 0, 'ad_interval' => 4, 'ad_content_enabled' => 1, 'ad_content_after' => 3,
+        'social_image' => '', 'adsense_publisher' => '', 'ad_enabled' => 0, 'ad_interval' => 4, 'ad_content_enabled' => 1, 'ad_content_after' => 3,
         'footer_text' => '发现、分享，让好软件被更多人看见。', 'icp' => '', 'icp_url' => 'https://beian.miit.gov.cn/',
         'toolbox_url' => 'https://tool.nihendiao.com/', 'contact_url' => '',
         'sidebar_manifesto' => 1, 'sidebar_community' => 1, 'share_caption' => '好软件，值得分享。',
@@ -91,7 +91,9 @@ function dh_setting_groups() {
             'seo_title' => ['首页 SEO 标题（留空使用站点标题）', 'text'], 'seo_description' => ['首页描述', 'textarea'],
             'social_image' => ['默认社交分享图 URL', 'url'],
         ]],
-        'ads' => ['广告管理', ['ad_enabled' => ['启用所有已配置广告', 'checkbox'], 'ad_interval' => ['列表广告插入位置（第几条之后）', 'number'], 'ad_content_enabled' => ['启用文章正文中广告', 'checkbox'], 'ad_content_after' => ['正文中广告位置（第几个完整段落之后，1–36）', 'number']]],
+        'ads' => ['广告管理', [
+            'ad_enabled' => ['启用所有已配置广告', 'checkbox'],
+            'adsense_publisher' => ['AdSense 发布商 ID（ca-pub-开头）', 'text'], 'ad_interval' => ['列表广告插入位置（第几条之后）', 'number'], 'ad_content_enabled' => ['启用文章正文中广告', 'checkbox'], 'ad_content_after' => ['正文中广告位置（第几个完整段落之后，1–36）', 'number']]],
         'footer' => ['页脚与联系', [
             'footer_text' => ['页脚文字', 'textarea'], 'icp' => ['ICP备案号（留空隐藏）', 'text'],
             'icp_url' => ['备案查询地址', 'url'], 'contact_url' => ['自定义投稿页面 URL（留空使用内置审核投稿）', 'url'],
@@ -125,13 +127,27 @@ function dh_sanitize_options($input) {
         $ids = array_filter(array_map('absint', explode(',', $clean[$key])));
         $clean[$key] = implode(',', array_slice(array_unique($ids), 0, $key === 'featured_ids' ? 3 : 100));
     }
+    $old = get_option('dh_options', []);
+    $clean['adsense_publisher'] = dh_adsense_publisher($clean['adsense_publisher']);
     foreach (dh_ad_slots() as $slot => $label) {
+        $key = 'ad_' . $slot . '_';
+        $provider = sanitize_key($input[$key . 'provider'] ?? 'legacy');
+        $format = sanitize_key($input[$key . 'format'] ?? 'display');
+        $clean[$key . 'provider'] = in_array($provider, ['legacy', 'adsense', 'off'], true) ? $provider : 'legacy';
+        $clean[$key . 'format'] = isset(dh_adsense_formats($slot)[$format]) ? $format : 'display';
+        $clean[$key . 'unit'] = dh_adsense_unit($input[$key . 'unit'] ?? '');
+        $clean[$key . 'layout_key'] = dh_adsense_layout_key($input[$key . 'layout_key'] ?? '');
+        $reserve = $input[$key . 'reserve'] ?? '';
+        $clean[$key . 'reserve'] = is_numeric($reserve) ? max(0, min(600, (int) $reserve)) : dh_adsense_default_height($slot);
+        if ($clean[$key . 'provider'] === 'adsense' && (!$clean['adsense_publisher'] || !$clean[$key . 'unit'] ||
+            ($clean[$key . 'format'] === 'in-feed' && !$clean[$key . 'layout_key']))) {
+            add_settings_error('dh_options', $key . 'config', $label . '的 AdSense 配置不完整，请检查发布商 ID、单元 ID 和信息流布局键。');
+        }
         foreach (['title', 'image', 'url', 'html'] as $type) {
             $key = 'ad_' . $slot . '_' . $type;
             $value = isset($input[$key]) && is_scalar($input[$key]) ? (string) $input[$key] : '';
             if ($type === 'html') {
-                $old = get_option('dh_options', []);
-                $clean[$key] = current_user_can('unfiltered_html') ? $value : ($old[$key] ?? '');
+                $clean[$key] = current_user_can('unfiltered_html') && array_key_exists($key, $input) ? $value : ($old[$key] ?? '');
             } else { $clean[$key] = in_array($type, ['image', 'url'], true) ? esc_url_raw($value, ['http', 'https']) : sanitize_text_field($value); }
         }
     }
@@ -164,8 +180,32 @@ function dh_settings_page() {
     <?php if ($id === 'analytics'): ?><p>可粘贴百度、Google Analytics、Umami 等完整代码；仅具备 unfiltered_html 权限的管理员可保存脚本。关闭开关保留代码。浏览量独立统计，不依赖第三方服务。</p><?php endif; ?>
     <?php if ($id === 'comments'): ?><p>目前不开评论时请选择「彻底关闭前台评论」，同时拦截直接提交、REST 新增和评论订阅入口；已有记录仍可在后台管理。防护模式不会替你开启文章评论；蜜罐、链接、字数、关键词和频率检查不通过的提交会直接拒绝，不写入垃圾评论库。管理员审核与后台回复保留。</p><p>限流按服务器 REMOTE_ADDR 的摘要计数，不信任任意转发头；反向代理需正确配置真实来源，共享网络可能共用额度。仅限制留言，不屏蔽搜索引擎正常抓取。高频访问、采集及流量攻击还需在服务器/CDN/WAF 设置限流。修改模式后清理页面缓存。</p><?php endif; ?>
     <?php if ($id === 'seo'): ?><p class="description">包含 canonical、描述、Open Graph、Twitter Card、结构化数据；沿用 WordPress 核心 sitemap。搜索、收藏与筛选页不参与索引。Yoast、Rank Math、AIOSEO、SEOPress 存在时自动让位。</p><?php endif; ?>
-    <?php if ($id === 'ads'): ?><p>可填图片广告或 HTML 代码；HTML 优先。仅有 unfiltered_html 权限的管理员可保存执行脚本，代码由你信任的广告服务提供。未配置广告不占空间。正文中广告默认显示在第 3 个完整独立段落后；段落不足时放在最后一个独立段落后。列表、引用、代码块等嵌套内容不计入，正文没有适合的段落时不插入。正文后的原有广告位独立保留。</p>
-    <?php foreach (dh_ad_slots() as $slot => $label): ?><h3><?php echo esc_html($label); ?></h3><table class="form-table" role="presentation"><?php foreach (['title' => '广告文案 / 图片替代文字', 'image' => '广告图片 URL', 'url' => '广告目标链接', 'html' => '广告 HTML / 脚本'] as $type => $name): $key = 'ad_' . $slot . '_' . $type; ?><tr><th><label for="dh-<?php echo esc_attr($key); ?>"><?php echo esc_html($name); ?></label></th><td><?php if ($type === 'html'): ?><textarea id="dh-<?php echo esc_attr($key); ?>" name="dh_options[<?php echo esc_attr($key); ?>]" <?php disabled(!current_user_can('unfiltered_html')); ?>><?php echo esc_textarea(dh_opt($key)); ?></textarea><?php else: ?><input id="dh-<?php echo esc_attr($key); ?>" type="<?php echo in_array($type, ['image', 'url'], true) ? 'url' : 'text'; ?>" name="dh_options[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr(dh_opt($key)); ?>"><?php endif; ?></td></tr><?php endforeach; ?></table><?php endforeach; ?>
+    <?php if ($id === 'ads'): ?>
+    <p>使用 AdSense 时，填一次发布商 ID，再为需要的位置选择 AdSense 并填入对应单元 ID。信息流广告还需填入原代码中的 <code>data-ad-layout-key</code>。请移除同页其他广告代码或插件重复输出的 <code>adsbygoogle.js</code>。</p>
+    <p>已有图片和 HTML 使用「图片 / HTML」模式，HTML 优先。切换模式会保留原设置。正文中广告默认在第 3 个完整独立段落后，正文后的广告位可独立配置。</p>
+    <?php foreach (dh_ad_slots() as $slot => $label): $prefix = 'ad_' . $slot . '_'; $reserve = dh_opt($prefix . 'reserve'); ?>
+    <h3><?php echo esc_html($label); ?></h3><table class="form-table" role="presentation">
+    <?php foreach (['provider' => ['广告类型', ['legacy' => '图片 / HTML', 'adsense' => 'Google AdSense', 'off' => '关闭此广告位']], 'format' => ['AdSense 格式', dh_adsense_formats($slot)]] as $type => [$name, $choices]): ?>
+    <tr><th scope="row"><label for="dh-<?php echo esc_attr($prefix . $type); ?>"><?php echo esc_html($name); ?></label></th><td>
+        <select id="dh-<?php echo esc_attr($prefix . $type); ?>" name="dh_options[<?php echo esc_attr($prefix . $type); ?>]">
+        <?php foreach ($choices as $value => $text): ?>
+            <option value="<?php echo esc_attr($value); ?>" <?php selected(dh_opt($prefix . $type) ?: array_key_first($choices), $value); ?>><?php echo esc_html($text); ?></option>
+        <?php endforeach; ?>
+        </select>
+    </td></tr>
+    <?php endforeach; ?>
+    <tr><th scope="row"><label for="dh-<?php echo esc_attr($prefix); ?>unit">AdSense 广告单元 ID</label></th><td>
+        <input id="dh-<?php echo esc_attr($prefix); ?>unit" type="text" inputmode="numeric" maxlength="20" name="dh_options[<?php echo esc_attr($prefix); ?>unit]" value="<?php echo esc_attr(dh_opt($prefix . 'unit')); ?>">
+    </td></tr>
+    <?php if ($slot === 'feed'): ?>
+    <tr><th scope="row"><label for="dh-<?php echo esc_attr($prefix); ?>layout_key">信息流布局键</label></th><td>
+        <input id="dh-<?php echo esc_attr($prefix); ?>layout_key" type="text" maxlength="160" name="dh_options[<?php echo esc_attr($prefix); ?>layout_key]" value="<?php echo esc_attr(dh_opt($prefix . 'layout_key')); ?>">
+    </td></tr>
+    <?php endif; ?>
+    <tr><th scope="row"><label for="dh-<?php echo esc_attr($prefix); ?>reserve">AdSense 预留最小高度（像素）</label></th><td>
+        <input id="dh-<?php echo esc_attr($prefix); ?>reserve" type="number" min="0" max="600" name="dh_options[<?php echo esc_attr($prefix); ?>reserve]" value="<?php echo esc_attr($reserve === '' ? dh_adsense_default_height($slot) : $reserve); ?>">
+    </td></tr>
+    <?php foreach (['title' => '广告文案 / 图片替代文字', 'image' => '广告图片 URL', 'url' => '广告目标链接', 'html' => '广告 HTML / 脚本'] as $type => $name): $key = 'ad_' . $slot . '_' . $type; ?><tr><th><label for="dh-<?php echo esc_attr($key); ?>"><?php echo esc_html($name); ?></label></th><td><?php if ($type === 'html'): ?><textarea id="dh-<?php echo esc_attr($key); ?>" name="dh_options[<?php echo esc_attr($key); ?>]" <?php disabled(!current_user_can('unfiltered_html')); ?>><?php echo esc_textarea(dh_opt($key)); ?></textarea><?php else: ?><input id="dh-<?php echo esc_attr($key); ?>" type="<?php echo in_array($type, ['image', 'url'], true) ? 'url' : 'text'; ?>" name="dh_options[<?php echo esc_attr($key); ?>]" value="<?php echo esc_attr(dh_opt($key)); ?>"><?php endif; ?></td></tr><?php endforeach; ?></table><?php endforeach; ?>
     <?php endif; ?></fieldset><?php endforeach; ?>
     <?php submit_button('保存主题设置'); ?></form></div>
     <?php

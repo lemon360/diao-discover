@@ -1,8 +1,8 @@
 <?php
 /** 屌软件 Discover theme. */
 if (!defined('ABSPATH')) { exit; }
-define('DH_VERSION', '1.4.3');
-foreach (['settings', 'colors', 'software', 'seo', 'community', 'template', 'content-ads', 'widgets', 'tools', 'comment-guard', 'newsletter', 'insights', 'html-minify'] as $module) {
+define('DH_VERSION', '1.5.0');
+foreach (['settings', 'colors', 'software', 'seo', 'community', 'template', 'adsense', 'content-ads', 'widgets', 'tools', 'comment-guard', 'newsletter', 'insights', 'html-minify'] as $module) {
     require_once get_template_directory() . '/inc/' . $module . '.php';
 }
 add_action('after_setup_theme', function () {
@@ -22,14 +22,15 @@ add_action('after_setup_theme', function () {
 add_action('wp_enqueue_scripts', function () {
     wp_enqueue_style('dh-style', get_stylesheet_uri(), [], DH_VERSION);
     wp_enqueue_script('dh-app', get_theme_file_uri('assets/app.js'), [], DH_VERSION, true);
-    wp_localize_script('dh-app', 'DH', [
+    $config = [
         'rest' => esc_url_raw(rest_url('diao/v1/')), 'nonce' => wp_create_nonce('wp_rest'),
         'loggedIn' => is_user_logged_in(), 'login' => wp_login_url(get_permalink() ?: home_url('/')),
         'home' => home_url('/'), 'theme' => dh_opt('color_mode'),
         'viewPost' => dh_opt('views_enabled') && is_single() && !is_preview() && !post_password_required() && !current_user_can('edit_post', get_queried_object_id()) ? get_queried_object_id() : 0,
-    ]);
+    ];
+    wp_add_inline_script('dh-app', 'window.DH = ' . wp_json_encode($config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';', 'before');
     $palette = dh_color_palette(dh_opt('accent'));
-    wp_add_inline_style('dh-style', ':root{--brand-accent:' . $palette['brand'] . ';--accent:' . $palette['light'] . ';--on-accent:#fffaf5}[data-theme=dark]{--accent:' . $palette['dark'] . ';--on-accent:#202820}');
+    wp_add_inline_style('dh-style', ':root{--brand-accent:' . $palette['brand'] . ';--accent-light:' . $palette['light'] . ';--accent-dark:' . $palette['dark'] . '}');
     if (is_singular() && comments_open() && get_option('thread_comments')) { wp_enqueue_script('comment-reply'); }
 });
 add_filter('excerpt_length', function () { return 40; });

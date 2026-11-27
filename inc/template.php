@@ -40,7 +40,7 @@ function dh_product_icon($id = 0, $size = 'dh-icon') {
     $id = $id ?: get_the_ID();
     $colors = ['#e9e7fd', '#e4f1e7', '#fff0dc', '#e3edff', '#ffe8e5', '#e3f4f0'];
     echo '<span class="product-icon" style="--tile:' . esc_attr($colors[$id % count($colors)]) . '">';
-    if (has_post_thumbnail($id)) { echo get_the_post_thumbnail($id, $size, ['loading' => 'lazy']); }
+    if (has_post_thumbnail($id)) { echo get_the_post_thumbnail($id, $size); }
     else { echo esc_html(function_exists('mb_substr') ? mb_substr(dh_title($id), 0, 1) : wp_html_excerpt(dh_title($id), 1)); }
     echo '</span>';
 }
@@ -85,6 +85,9 @@ function dh_bookmark_button($id, $label = false) {
 }
 function dh_ad($slot) {
     if (!dh_opt('ad_enabled')) { return; }
+    $provider = dh_opt('ad_' . $slot . '_provider');
+    if ($provider === 'off') { return; }
+    if ($provider === 'adsense') { dh_adsense_render($slot); return; }
     $html = dh_opt('ad_' . $slot . '_html'); $image = dh_opt('ad_' . $slot . '_image'); $url = dh_opt('ad_' . $slot . '_url'); $title = dh_opt('ad_' . $slot . '_title');
     if (!$html && (!$image || !$url)) { return; }
     echo '<aside class="ad-slot ad-' . esc_attr($slot) . '" aria-label="广告">';
